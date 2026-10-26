@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import plotly.express as px
 
+# функция чтения и соединения данных
 def get_all_data(items,orders,users):
    df_items = pd.read_csv(items)
    df_orders = pd.read_csv(orders)
@@ -12,6 +13,7 @@ def get_all_data(items,orders,users):
    merged2 = merged1.merge(df_items, on='item_id', how='outer')
    return merged2
 
+# функция очистки с выводами
 def clean_data(indf):
    df = indf.copy()
    output_info = []
@@ -42,13 +44,16 @@ def clean_data(indf):
 
    return df, output_info
 
+# настройка страницы
 st.set_page_config(
    page_title = "Дашборд анализа продаж",
    layout = "wide"
 )
 
+# используем 2 вкладки для разделения исходных данных с фильтрацией и графиков с выводами
 tab1, tab2 = st.tabs(["Исходные данные и метрики по фильтрам", "Визуализация и анализ исходных данных"])
 
+# собираем данные на первой вкладке
 with tab1:
    st.subheader("Исходные данные")
 
@@ -66,11 +71,14 @@ with tab1:
    df_init = get_all_data("items.csv","orders.csv","users.csv")
    df, info_clean  = clean_data(df_init)
 
+# вывод результатов очистки данных
    for line in info_clean:
       st.markdown(f'<p style="background-color:#B8D4F1;color:black;font-size:18px;border-radius:6%;">{line}</p>', unsafe_allow_html=True)
 
+# начальный датасет
    st.dataframe(df)
 
+# боковая панель с фильтрацией по категориям и датам
    with st.sidebar:
       st.header("Фильтры")
       list_cat = ["Любая"] + list(sorted(df["category"].unique()))
@@ -93,6 +101,8 @@ with tab1:
 
    st.subheader("Результаты фильтрации:")
 
+# если даты не подходят для выбранной категории,
+# то выводится сообщение о невозможности такого фильтра
    try:
       start_date, end_date = date_range
       filtered_df = filtered_df[
@@ -109,6 +119,7 @@ with tab1:
    revenue = (filtered_df['quantity']*filtered_df['price_per_unit']).sum()
    num_users = filtered_df['user_id'].nunique()
 
+# функция, которая настраивает внешний вид каждой метрики, вывод через markdown
    def custom_metric(label, value, bg_color):
       html_code = f"""
        <div style="
@@ -125,6 +136,7 @@ with tab1:
        """
       return st.html(html_code)
 
+# вывод метрик
    m1, m2 = st.columns(2)
 
    with m1:
@@ -139,6 +151,7 @@ with tab1:
    with m4:
       custom_metric("Средний чек", f"{revenue/num_orders:.2f}", "#FFF3E0")
 
+# настройка второй вкладки
 with tab2:
    df2 = df.copy()
    df2["revenue"] = df2['quantity']*df2['price_per_unit']
@@ -150,6 +163,7 @@ with tab2:
       .head(10)
    )
 
+# первый график Топ-10 товаров по выручке
    st.subheader("Топ-10 товаров по выручке")
 
    fig, ax = plt.subplots(figsize=(8, 5))
@@ -169,6 +183,7 @@ with tab2:
 
    st.pyplot(fig)
 
+   # второй график Распределение выручки по категориям товаров
    st.subheader("Распределение выручки по категориям товаров")
    fig2 = px.pie(
       df2,
@@ -185,6 +200,7 @@ with tab2:
 
    st.plotly_chart(fig2, use_container_width=True)
 
+   # третий график Зависимость количества заказов от дня недели
    st.subheader("Зависимость количества заказов от дня недели")
 
    df2['dt'] = pd.to_datetime(df2['order_date'])
@@ -214,34 +230,41 @@ with tab2:
       marker_line_color='black', # Цвет границ столбцов
       marker_line_width=1.5      # Толщина границ
    )
+   # форматирование оси Х
    fig3.update_xaxes(
       tickvals=[0, 1, 2, 3, 4, 5, 6],
       ticktext=['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Субота', 'Воскресенье']
    )
 
-# Настройка осей, шрифтов и легенды
+# Настройка осей, шрифтов
    fig3.update_layout(
       xaxis_title_font=dict(size=14, family='Arial', color='darkblue'),
       yaxis_title_font=dict(size=14, family='Arial', color='darkblue'),
       coloraxis_showscale=False,
-      yaxis=dict(showgrid=True, gridcolor='LightGray'), # Включаем сетку
-      margin=dict(l=40, r=40, t=60, b=40), # Отступы от краев
-      height=500 # Высота графика в пикселях
+      yaxis=dict(showgrid=True, gridcolor='LightGray'),
+      margin=dict(l=40, r=40, t=60, b=40),
+      height=500
 )
 
    st.plotly_chart(fig3, use_container_width=True)
 
    st.subheader("Аналитические выводы")
 
+   # считаем категорию с максимальным доходом
    cat_max = df2.groupby('category')['revenue'].sum()
 
    max_category = cat_max.idxmax()
    max_revenue = cat_max.max()
 
+  # все аналитические выводы выводи через markdown
    st.markdown(
       f"Основная выручка приходится на категорию <span style='color:red; font-weight:bold;'>{max_category} ( Выручка составила {max_revenue})</span>",
       unsafe_allow_html=True
    )
+
+   # вывод дней недели с наибольшим количеством заказов
+   # так как дней мало, то вероятность того, что несколько дей будут иметь максильное
+   # колчество заказов, большое. Вывоодим все дни с максильны колвом заказов.
 
    max_val_for_week = df_weekday_orders['order_id'].max()
    days_week = df_weekday_orders[df_weekday_orders['order_id'] == max_val_for_week]
